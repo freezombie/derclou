@@ -56,6 +56,52 @@ SDL_Window *sdlWindow;
 SDL_Renderer *sdlRenderer;
 SDL_Texture *sdlTexture;
 
+/* sdlTexture is SCREEN_WIDTH x SCREEN_HEIGHT times this (GFX_SCALE_SHARP) */
+static int sdlTextureFactor = 1;
+
+/* Graphics can't work without these, and the rest of the game isn't
+ * set up yet, so don't go through tcDone(). */
+static void gfxInitFailed(const char *what)
+{
+    DebugMsg(ERR_WARNING, ERROR_MODULE_GFX, "%s failed: %s", what,
+	     SDL_GetError());
+    SDL_Quit();
+    exit(1);
+}
+
+/* GFX_SCALE_SHARP: the smallest whole multiple of 320x200 that is at
+ * least as big as the picture on screen. The renderer then scales that
+ * (linear) to the exact size, so pixels stay sharp and even. */
+static int gfxSharpFactor(void)
+{
+    int w, h, f;
+
+    if (setup.ScaleMode != GFX_SCALE_SHARP
+	|| SDL_GetRendererOutputSize(sdlRenderer, &w, &h) != 0)
+	return 1;
+
+    if (w * SCREEN_HEIGHT < h * SCREEN_WIDTH)	/* width decides */
+	f = (w + SCREEN_WIDTH - 1) / SCREEN_WIDTH;
+    else
+	f = (h + SCREEN_HEIGHT - 1) / SCREEN_HEIGHT;
+
+    return clamp(f, 1, 8);
+}
+
+static void gfxCreateTexture(void)
+{
+    if (sdlTexture)
+	SDL_DestroyTexture(sdlTexture);
+
+    sdlTextureFactor = gfxSharpFactor();
+
+    sdlTexture = SDL_CreateTexture(sdlRenderer,
+	    SDL_PIXELFORMAT_RGB888, SDL_TEXTUREACCESS_STREAMING,
+	    SCREEN_WIDTH * sdlTextureFactor, SCREEN_HEIGHT * sdlTextureFactor);
+    if (!sdlTexture)
+	gfxInitFailed("SDL_CreateTexture");
+}
+
 /********************************************************************
  * inits & dons
  */
@@ -83,18 +129,32 @@ void gfxInit(void)
 	    SDL_WINDOWPOS_UNDEFINED,
 	    sw, sh,
 	    flags);
+    if (!sdlWindow)
+	gfxInitFailed("SDL_CreateWindow");
+
     sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, 0);
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
+    if (!sdlRenderer)
+	gfxInitFailed("SDL_CreateRenderer");
+
+    /* read when a texture is created */
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY,
+	    (setup.ScaleMode == GFX_SCALE_NEAREST
+	     || setup.ScaleMode == GFX_SCALE_INTEGER) ? "nearest" : "linear");
     SDL_RenderSetLogicalSize(sdlRenderer, SCREEN_WIDTH, SCREEN_HEIGHT);
+    if (setup.ScaleMode == GFX_SCALE_INTEGER)
+	SDL_RenderSetIntegerScale(sdlRenderer, SDL_TRUE);
 
     windowSurface = SDL_CreateRGBSurface(0, SCREEN_WIDTH, SCREEN_HEIGHT,
 	    24, 0, 0, 0, 0);
-    sdlTexture = SDL_CreateTexture(sdlRenderer,
-	    SDL_PIXELFORMAT_RGB888, SDL_TEXTUREACCESS_STREAMING,
-	    SCREEN_WIDTH, SCREEN_HEIGHT);
+    if (!windowSurface)
+	gfxInitFailed("SDL_CreateRGBSurface");
+
+    gfxCreateTexture();
 
     Screen = SDL_CreateRGBSurface(0, SCREEN_WIDTH, SCREEN_HEIGHT,
 	    8, 0, 0, 0, 0);
+    if (!Screen)
+	gfxInitFailed("SDL_CreateRGBSurface");
 
     gfxSetGC(NULL);
 
@@ -1838,9 +1898,38 @@ void gfxBlit(GC *gc, MemRastPort *src, U16 sx, U16 sy, U16 dx, U16 dy,
 
 static int screen_freeze_count = 0;
 
+/* Copy windowSurface into the texture, each pixel as a
+ * sdlTextureFactor x sdlTextureFactor block. */
+static void gfxConvertScaled(Uint8 *dst, int pitch)
+{
+    static Uint32 rgb[SCREEN_WIDTH * SCREEN_HEIGHT];
+    int f = sdlTextureFactor, x, y, i;
+
+    SDL_ConvertPixels(windowSurface->w, windowSurface->h,
+	    windowSurface->format->format,
+	    windowSurface->pixels, windowSurface->pitch,
+	    SDL_PIXELFORMAT_RGB888,
+	    rgb, SCREEN_WIDTH * sizeof(Uint32));
+
+    for (y = 0; y < SCREEN_HEIGHT; y++) {
+	const Uint32 *src = rgb + y * SCREEN_WIDTH;
+	Uint32 *row = (Uint32 *) dst;
+
+	for (x = 0; x < SCREEN_WIDTH; x++)
+	    for (i = 0; i < f; i++)
+		*row++ = src[x];
+
+	for (i = 1; i < f; i++)
+	    memcpy(dst + i * pitch, dst, SCREEN_WIDTH * f * sizeof(Uint32));
+
+	dst += f * pitch;
+    }
+}
+
 /* ZZZ */
 void gfxRealRefreshArea(U16 x, U16 y, U16 w, U16 h)
 {
+    static bool lockFailed = false;
     Rectangle areaR, areaR2;
     void *pixels;
     int pitch;
@@ -1863,12 +1952,29 @@ void gfxRealRefreshArea(U16 x, U16 y, U16 w, U16 h)
 
     SDL_BlitSurface(Screen, NULL, windowSurface, NULL);
 
-    SDL_LockTexture(sdlTexture, NULL, &pixels, &pitch);
-    SDL_ConvertPixels(windowSurface->w, windowSurface->h,
-	    windowSurface->format->format,
-	    windowSurface->pixels, windowSurface->pitch,
-	    SDL_PIXELFORMAT_RGB888,
-	    pixels, pitch);
+    /* window or screen size changed? */
+    if (setup.ScaleMode == GFX_SCALE_SHARP
+	&& gfxSharpFactor() != sdlTextureFactor)
+	gfxCreateTexture();
+
+    if (SDL_LockTexture(sdlTexture, NULL, &pixels, &pitch) != 0) {
+	if (!lockFailed) {
+	    DebugMsg(ERR_WARNING, ERROR_MODULE_GFX,
+		     "SDL_LockTexture failed: %s", SDL_GetError());
+	    lockFailed = true;
+	}
+	return;
+    }
+
+    if (sdlTextureFactor == 1)
+	SDL_ConvertPixels(windowSurface->w, windowSurface->h,
+		windowSurface->format->format,
+		windowSurface->pixels, windowSurface->pitch,
+		SDL_PIXELFORMAT_RGB888,
+		pixels, pitch);
+    else
+	gfxConvertScaled((Uint8 *) pixels, pitch);
+
     SDL_UnlockTexture(sdlTexture);
 
     SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, NULL);
@@ -2009,13 +2115,21 @@ void MemBlit(MemRastPort *src, Rect *src_rect,
 void gfxGetMouseXY(GC *gc, U16 *pMouseX, U16 *pMouseY)
 {
     int MouseX = 0, MouseY = 0;
+    float logicalX, logicalY;
 
     SDL_PumpEvents();
 
     SDL_GetMouseState(&MouseX, &MouseY);
 
+    /* window pixels -> 320x200; also right in fullscreen and with
+     * borders (used to divide by setup.Scale, which is only right for a
+     * window of exactly that size) */
+    SDL_RenderWindowToLogical(sdlRenderer, MouseX, MouseY,
+	    &logicalX, &logicalY);
+    MouseX = clamp((int) logicalX, 0, SCREEN_WIDTH - 1);
+    MouseY = clamp((int) logicalY, 0, SCREEN_HEIGHT - 1);
+
     if (pMouseX) {
-	MouseX /= setup.Scale;
 	if (MouseX < gc->clip.x)
 	    MouseX = 0;
 	else
@@ -2024,7 +2138,6 @@ void gfxGetMouseXY(GC *gc, U16 *pMouseX, U16 *pMouseY)
     }
 
     if (pMouseY) {
-	MouseY /= setup.Scale;
 	if (MouseY < gc->clip.y)
 	    MouseY = 0;
 	else

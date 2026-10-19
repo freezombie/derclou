@@ -582,11 +582,12 @@ static const char aboutString[] =
 
 static const char syntaxString[] =
     "Syntax:\n"
-    "\tderclou [-h] [-d[<num>]] [-f] [-m<num>] [-s<num>]\n"
+    "\tderclou [-h] [-d[<num>]] [-f] [-g<num>] [-q<num>] [-m<num>] [-s<num>]\n"
     "Flags:\n"
     "\t-d[<num>]  - enable debug output (debug level [1])\n"
     "\t-f         - fullscreen mode\n"
-    "\t-g<mode>   - graphics mode (normal,2x,linear2x)\n"
+    "\t-g<num>    - window size: <num> times 320x200 [1]\n"
+    "\t-q<num>    - scaling: 0 smooth, 1 nearest, 2 integer, 3 sharp [0]\n"
     "\t-h         - show help\n"
     "\t-m<num>    - set music volume to <num> (0-255)\n"
     "\t-s<num>    - set sfx volume to <num> (0-255)\n"
@@ -608,6 +609,7 @@ static void parseOptions(int argc, char *argv[])
     setup.Debug         = 1;
     setup.CDAudio       = false;
     setup.Scale         = 1;
+    setup.ScaleMode     = GFX_SCALE_SMOOTH;
 
     for (i = 1; i < argc; i++) {
         s = argv[i];
@@ -617,6 +619,10 @@ static void parseOptions(int argc, char *argv[])
             case 'g':
                 setup.Scale = max(atoi(s+2), 1);
 		break;
+
+            case 'q':
+                setup.ScaleMode = clamp(atoi(s+2), 0, GFX_SCALE_LAST);
+                break;
 
             case 'd':
                 setup.Debug = max(atoi(s+2), 0);

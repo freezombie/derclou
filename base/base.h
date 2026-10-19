@@ -96,7 +96,15 @@ struct Setup {
     unsigned Debug;
     bool CDAudio;
     unsigned Scale;
+    unsigned ScaleMode;		/* GFX_SCALE_... */
 };
+
+/* How the 320x200 picture is scaled up to the window (-q option) */
+#define GFX_SCALE_SMOOTH	0	/* linear filtering: smooth, a bit blurry */
+#define GFX_SCALE_NEAREST	1	/* sharp, but pixels differ in size */
+#define GFX_SCALE_INTEGER	2	/* sharp, whole multiples only, borders */
+#define GFX_SCALE_SHARP		3	/* whole multiple with nearest, then linear to fit */
+#define GFX_SCALE_LAST		GFX_SCALE_SHARP
 
 extern struct Setup setup;
 
