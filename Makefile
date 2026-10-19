@@ -69,3 +69,15 @@ derclou: $(O_FILES)
 
 clean:
 	rm -f *~ *.o */*.o derclou
+
+# Rebuild everything without optimization, for gdb.
+debug:
+	$(MAKE) clean
+	$(MAKE) OPT="-O0"
+
+# Rebuild with AddressSanitizer and UndefinedBehaviorSanitizer.
+asan:
+	$(MAKE) clean
+	$(MAKE) OPT="-O1 -fno-omit-frame-pointer -fsanitize=address,undefined"
+
+.PHONY: clean debug asan
