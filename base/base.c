@@ -264,7 +264,7 @@ static void SetFullEnviroment(void)
     hasSetP(Person_Matt_Stuvysunt, Ability_Elektronik, 251);
     hasSetP(Person_Matt_Stuvysunt, Ability_Schloesser, 210);
     hasSetP(Person_Matt_Stuvysunt, Ability_Aufpassen, 180);
-    hasSetP(Person_Matt_Stuvysunt, Ability_Schloesser, 180);
+    hasSetP(Person_Matt_Stuvysunt, Ability_Safes, 180);
 
     hasSetP(Person_Marc_Smith, Ability_Autos, 255);
     hasSetP(Person_Mohammed_Abdula, Ability_Kampf, 255);
