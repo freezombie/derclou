@@ -63,9 +63,12 @@ KEY dbEncode(char *key)
 {
     void *obj = dbGetObject(atol(key));
 
+    /* key is a decimal string, not an object, so don't pass it to
+     * dbGetObjectReal(). Not fatal: Buckingham Palace asks for key ""
+     * (as in COSP 0.5a). */
     if (!obj) {
-	DebugMsg(ERR_ERROR, ERROR_MODULE_DATABASE,
-            "Could not find object <%" PRIu32 ">!", dbGetObjectReal(key)->nr);
+	DebugMsg(ERR_WARNING, ERROR_MODULE_DATABASE,
+            "Could not find object <%s>!", key);
     }
 
     return obj;
