@@ -263,7 +263,10 @@ U32 txtGetKeyAsULONG(U16 keyNr, char *key)
 	return ((U32) - 1);
 }
 
-LIST *txtGoKey(U32 textId, const char *key)
+/* prefix: also accept a mark that only starts with key. Some localized
+ * data files (e.g. the Czech TALK_0E.TXT) contain marks that do not match
+ * the key the code asks for exactly. Approach taken from COSP 0.4e. */
+static LIST *txtGoKeyMatch(U32 textId, const char *key, U8 prefix)
 {
     LIST *txtList = NULL;
     struct Text *txt = GetNthNode(txtBase->tc_Texts, textId);
@@ -293,11 +296,12 @@ LIST *txtGoKey(U32 textId, const char *key)
 		U8 found = 1;
 
 		if (key) {
-		    char mark[TXT_KEY_LENGTH];
+		    const char *mark = txt->txt_LastMark + 1;
 
-		    strcpy(mark, txt->txt_LastMark + 1);
-
-		    if (strcmp(key, mark) != 0)
+		    if (prefix) {
+			if (strncmp(key, mark, strlen(key)) != 0)
+			    found = 0;
+		    } else if (strcmp(key, mark) != 0)
 			found = 0;
 		}
 
@@ -314,6 +318,19 @@ LIST *txtGoKey(U32 textId, const char *key)
 	    }
 	}
 
+    }
+
+    return txtList;
+}
+
+LIST *txtGoKey(U32 textId, const char *key)
+{
+    LIST *txtList = txtGoKeyMatch(textId, key, 0);
+
+    if (!txtList && key) {
+	DebugMsg(ERR_WARNING, ERROR_MODULE_TXT,
+		 "NOT FOUND KEY '%s', trying prefix match", key);
+	txtList = txtGoKeyMatch(textId, key, 1);
     }
 
     if (!txtList) {
