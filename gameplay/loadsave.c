@@ -42,7 +42,7 @@ void tcSaveTheClou(void)
     player->CurrMinute = GetMinute;
     player->CurrLocation = GetLocation;
 
-    dskBuildPathName(DISK_CHECK_FILE, DATADISK, GAMES_LIST_TXT, pathname);
+    dskBuildSavePathName(DISK_CHECK_FILE, GAMES_LIST_TXT, pathname);
     if (ReadList(games, 0L, pathname)) {
 	inpTurnESC(1);
 	inpTurnFunctionKey(0);
@@ -73,31 +73,34 @@ void tcSaveTheClou(void)
 	    txtGetFirstLine(THECLOU_TXT, "SAVING", line);
 	    PrintStatus(line);
 
+	    /* read from wherever it was found, always written to the
+	     * save folder */
+	    dskBuildSavePathName(DISK_CHECK_DIR, GAMES_LIST_TXT, pathname);
 	    WriteList(games, pathname);
 
 	    /* Speichern von tcMain */
             sprintf(line, "%s%d%s", MAIN_DATA_NAME, activ, GAME_DATA_EXT);
-	    dskBuildPathName(DISK_CHECK_DIR, DATADISK, line, pathname);
+	    dskBuildSavePathName(DISK_CHECK_DIR, line, pathname);
 	    dbSaveAllObjects(pathname, DB_tcMain_OFFSET, DB_tcMain_SIZE, 0);
 
             sprintf(line, "%s%d%s", MAIN_DATA_NAME, activ, GAME_REL_EXT);
-	    dskBuildPathName(DISK_CHECK_DIR, DATADISK, line, pathname);
+	    dskBuildSavePathName(DISK_CHECK_DIR, line, pathname);
 	    SaveRelations(pathname, DB_tcMain_OFFSET, DB_tcMain_SIZE, 0);
 
 	    /* Speichern von tcBuild */
             sprintf(line, "%s%d%s", BUILD_DATA_NAME, activ, GAME_DATA_EXT);
-	    dskBuildPathName(DISK_CHECK_DIR , DATADISK, line, pathname);
+	    dskBuildSavePathName(DISK_CHECK_DIR, line, pathname);
 	    dbSaveAllObjects(pathname, (U32) (DB_tcBuild_OFFSET),
 			     (U32) (DB_tcBuild_SIZE), 0);
 
             sprintf(line, "%s%d%s", BUILD_DATA_NAME, activ, GAME_REL_EXT);
-	    dskBuildPathName(DISK_CHECK_DIR, DATADISK, line, pathname);
+	    dskBuildSavePathName(DISK_CHECK_DIR, line, pathname);
 	    SaveRelations(pathname, (U32) DB_tcBuild_OFFSET, (U32) DB_tcBuild_SIZE,
 			  0);
 
 	    /* Speichern der Story */
             sprintf(line, "%s%d%s", STORY_DATA_NAME, activ, GAME_DATA_EXT);
-	    dskBuildPathName(DISK_CHECK_DIR, DATADISK, line, pathname);
+	    dskBuildSavePathName(DISK_CHECK_DIR, line, pathname);
 	    tcSaveChangesInScenes(pathname);
 	}
     }
@@ -130,22 +133,22 @@ ubyte tcLoadIt(char activ)
     txtReset(OBJECTS_TXT);
 
     sprintf(line, "%s%d%s", MAIN_DATA_NAME, (int) activ, GAME_DATA_EXT);
-    dskBuildPathName(DISK_CHECK_FILE, DATADISK, line, pathname);
+    dskBuildSavePathName(DISK_CHECK_FILE, line, pathname);
     if (dbLoadAllObjects(pathname, 0)) {
         sprintf(line, "%s%d%s", BUILD_DATA_NAME, (int) activ, GAME_DATA_EXT);
-        dskBuildPathName(DISK_CHECK_FILE, DATADISK, line, pathname);
+        dskBuildSavePathName(DISK_CHECK_FILE, line, pathname);
 
 	if (dbLoadAllObjects(pathname, 0)) {
             sprintf(line, "%s%d%s", MAIN_DATA_NAME, (int) activ, GAME_REL_EXT);
-            dskBuildPathName(DISK_CHECK_FILE, DATADISK, line, pathname);
+            dskBuildSavePathName(DISK_CHECK_FILE, line, pathname);
 
 	    if (LoadRelations(pathname, 0)) {
                 sprintf(line, "%s%d%s", BUILD_DATA_NAME, (int) activ, GAME_REL_EXT);
-                dskBuildPathName(DISK_CHECK_FILE, DATADISK, line, pathname);
+                dskBuildSavePathName(DISK_CHECK_FILE, line, pathname);
 
 		if (LoadRelations(pathname, 0)) {
                     sprintf(line, "%s%d%s", STORY_DATA_NAME, (int) activ, GAME_DATA_EXT);
-                    dskBuildPathName(DISK_CHECK_FILE, DATADISK, line, pathname);
+                    dskBuildSavePathName(DISK_CHECK_FILE, line, pathname);
 
 		    if (tcLoadChangesInScenes(pathname))
 			loaded = 1;
@@ -168,7 +171,7 @@ ubyte tcLoadTheClou(void)
     char pathname1[DSK_PATH_MAX];
     char pathname2[DSK_PATH_MAX];
 
-    dskBuildPathName(DISK_CHECK_FILE, DATADISK, GAMES_LIST_TXT, pathname1);
+    dskBuildSavePathName(DISK_CHECK_FILE, GAMES_LIST_TXT, pathname1);
     dskBuildPathName(DISK_CHECK_FILE, DATADISK, GAMES_ORIG_TXT, pathname2);
 
     if (ReadList(games, 0L, pathname1) && ReadList(origin, 0L, pathname2)) {

@@ -15,6 +15,10 @@
 
 char RootPathName[DSK_PATH_MAX];
 
+/* Folder for savegames and the player's own plans. Empty = the game's
+ * DATADISK folder, as in the original. */
+static char SavePathName[DSK_PATH_MAX];
+
 
 void dskSetRootPath(const char *newRootPath)
 {
@@ -24,6 +28,43 @@ void dskSetRootPath(const char *newRootPath)
 char *dskGetRootPath(char *result)
 {
     return strcpy(result, RootPathName);
+}
+
+void dskSetSavePath(const char *newSavePath)
+{
+    size_t len;
+
+    strncpy(SavePathName, newSavePath, DSK_PATH_MAX - 64);
+    SavePathName[DSK_PATH_MAX - 64] = '\0';
+
+    /* no trailing separator, one is added in dskBuildSavePathName() */
+    len = strlen(SavePathName);
+    while (len > 1 && (SavePathName[len - 1] == '/'
+		       || SavePathName[len - 1] == '\\'))
+	SavePathName[--len] = '\0';
+
+    DebugMsg(ERR_DEBUG, ERROR_MODULE_DISK, "Save folder: %s",
+	     SavePathName[0] ? SavePathName : "(game's datadisk folder)");
+}
+
+/* Like dskBuildPathName() for the files in DATADISK that the player
+ * creates: savegames, games.lst and plans. Reading (DISK_CHECK_FILE)
+ * looks in the save folder first, then in DATADISK, so saves and plans
+ * that came with the game or were made before still load. Writing
+ * (DISK_CHECK_DIR) always goes to the save folder. */
+bool dskBuildSavePathName(DiskCheckE check, const char *Filename,
+			  char *Result)
+{
+    struct stat status;
+
+    if (SavePathName[0]) {
+	sprintf(Result, "%s" DIR_SEP "%s", SavePathName, Filename);
+
+	if ((check == DISK_CHECK_DIR) || (stat(Result, &status) == 0))
+	    return true;
+    }
+
+    return dskBuildPathName(check, DATADISK, Filename, Result);
 }
 
 FILE *dskOpen(const char *Pathname, const char *Mode)

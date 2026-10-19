@@ -104,6 +104,53 @@ static void AutoDetectVersion(void)
          setup.CDRom ? "CD-ROM" : "");
 }
 
+/* Saves go to the user's data folder (on Linux
+ * ~/.local/share/derclou/<version>/), one folder per language and
+ * version, since saves from one don't fit another. */
+static void SetSavePath(char lang)
+{
+    char name[64];
+    char *path;
+
+    if (setup.SaveDir) {
+	dskSetSavePath(setup.SaveDir);
+	return;
+    }
+
+    switch (lang) {
+    case 'd':
+	strcpy(name, "german");
+	break;
+    case 'e':
+	strcpy(name, "english");
+	break;
+    case 'f':
+	strcpy(name, "french");
+	break;
+    case 's':
+	strcpy(name, "spanish");
+	break;
+    default:
+	sprintf(name, "lang-%c", lang);
+	break;
+    }
+
+    if (setup.Profidisk)
+	strcat(name, "-profidisk");
+    if (setup.CDRom)
+	strcat(name, "-cd");
+
+    if ((path = SDL_GetPrefPath("derclou", name))) {
+	dskSetSavePath(path);
+	SDL_free(path);
+    } else {
+	DebugMsg(ERR_WARNING, ERROR_MODULE_BASE,
+		 "No save folder (%s), saving in the game folder",
+		 SDL_GetError());
+	dskSetSavePath("");
+    }
+}
+
 static char AutoDetectLanguage(void)
 {
     size_t i;
@@ -134,6 +181,8 @@ static char AutoDetectLanguage(void)
 
 static bool tcInit(void)
 {
+    char lang;
+
     SDL_Init(0);
 
     if (setup.Debug >= ERR_DEBUG) {
@@ -170,9 +219,11 @@ static bool tcInit(void)
     /* Start game. */
     inpOpenAllInputDevs();
 
-    txtInit(AutoDetectLanguage());
+    lang = AutoDetectLanguage();
+    txtInit(lang);
 
     AutoDetectVersion();
+    SetSavePath(lang);
 
     InitAnimHandler();
 
@@ -582,12 +633,14 @@ static const char aboutString[] =
 
 static const char syntaxString[] =
     "Syntax:\n"
-    "\tderclou [-h] [-d[<num>]] [-f] [-g<num>] [-q<num>] [-m<num>] [-s<num>]\n"
+    "\tderclou [-h] [-d[<num>]] [-f] [-g<num>] [-q<num>] [-p[<dir>]]\n"
+    "\t        [-m<num>] [-s<num>]\n"
     "Flags:\n"
     "\t-d[<num>]  - enable debug output (debug level [1])\n"
     "\t-f         - fullscreen mode\n"
     "\t-g<num>    - window size: <num> times 320x200 [1]\n"
     "\t-q<num>    - scaling: 0 smooth, 1 nearest, 2 integer, 3 sharp [0]\n"
+    "\t-p[<dir>]  - save folder (-p alone: game's datadisk)\n"
     "\t-h         - show help\n"
     "\t-m<num>    - set music volume to <num> (0-255)\n"
     "\t-s<num>    - set sfx volume to <num> (0-255)\n"
@@ -610,6 +663,7 @@ static void parseOptions(int argc, char *argv[])
     setup.CDAudio       = false;
     setup.Scale         = 1;
     setup.ScaleMode     = GFX_SCALE_SMOOTH;
+    setup.SaveDir       = NULL;
 
     for (i = 1; i < argc; i++) {
         s = argv[i];
@@ -619,6 +673,10 @@ static void parseOptions(int argc, char *argv[])
             case 'g':
                 setup.Scale = max(atoi(s+2), 1);
 		break;
+
+            case 'p':
+                setup.SaveDir = s+2;
+                break;
 
             case 'q':
                 setup.ScaleMode = clamp(atoi(s+2), 0, GFX_SCALE_LAST);

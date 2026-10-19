@@ -97,6 +97,8 @@ struct Setup {
     bool CDAudio;
     unsigned Scale;
     unsigned ScaleMode;		/* GFX_SCALE_... */
+    const char *SaveDir;	/* -p: NULL = per-version folder in the
+				   user's data folder, "" = DATADISK */
 };
 
 /* How the 320x200 picture is scaled up to the window (-q option) */

@@ -27,6 +27,9 @@ void *dskLoad(const char *Pathname);
 void dskSave(char *Pathname, void *src, size_t size);
 bool dskBuildPathName(DiskCheckE check,
 		      const char *Directory, const char *Filename, char *Result);
+extern void dskSetSavePath(const char *newSavePath);
+bool dskBuildSavePathName(DiskCheckE check, const char *Filename,
+			  char *Result);
 void dskClose(FILE *fp);
 void dskWrite(FILE *fp, void *src, size_t size);
 

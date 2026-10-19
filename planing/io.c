@@ -120,6 +120,7 @@ ubyte plOpen(U32 objId, ubyte mode, FILE ** fh)
 	FILE *pllFh;
 	U32 pllData = 0;
 	char pllPath[DSK_PATH_MAX], pllPath2[DSK_PATH_MAX],
+	    pllWritePath[DSK_PATH_MAX],
 	    name1[TXT_KEY_LENGTH], name2[TXT_KEY_LENGTH], exp[TXT_KEY_LENGTH];
 
 	dbGetObjectName(lsGetActivAreaID(), name1);
@@ -128,7 +129,10 @@ ubyte plOpen(U32 objId, ubyte mode, FILE ** fh)
 	/* MOD 25-04-94 HG - new paths on pc */
 	sprintf(name2, "%s%s", name1, PLANING_PLAN_LIST_EXTENSION);
 
-	dskBuildPathName(DISK_CHECK_FILE, DATADISK, name2, pllPath);
+	/* plan list: read from the save folder or the game's (Profidisk
+	 * plans), written to the save folder */
+	dskBuildSavePathName(DISK_CHECK_FILE, name2, pllPath);
+	dskBuildSavePathName(DISK_CHECK_DIR, name2, pllWritePath);
 
 	if ((pllFh = dskOpen(pllPath, "rb"))) {
 	    fscanf(pllFh, "%" SCNu32, &pllData);
@@ -183,9 +187,11 @@ ubyte plOpen(U32 objId, ubyte mode, FILE ** fh)
 		    sprintf(name2, "%s%d%s", name1, i + 1,
 			    PLANING_PLAN_EXTENSION);
 
-		    if(!dskBuildPathName(DISK_CHECK_FILE, DATADISK, name2, pllPath2)) {
-		        /* allow for uninitialized (non-existent) save files. */
-		        dskBuildPathName(DISK_CHECK_DIR, DATADISK, name2, pllPath2);
+		    if ((mode == PLANING_OPEN_WRITE_PLAN)
+			|| !dskBuildSavePathName(DISK_CHECK_FILE, name2, pllPath2)) {
+		        /* written plans go to the save folder; also allow for
+		         * uninitialized (non-existent) save files. */
+		        dskBuildSavePathName(DISK_CHECK_DIR, name2, pllPath2);
 		    }
 
 		    *fh = dskOpen(pllPath2, Planing_Open[mode]);
@@ -193,7 +199,7 @@ ubyte plOpen(U32 objId, ubyte mode, FILE ** fh)
 		    if (mode == PLANING_OPEN_WRITE_PLAN) {
 			pllData |= 1L << i;
 
-			if ((pllFh = dskOpen(pllPath, "wb"))) {
+			if ((pllFh = dskOpen(pllWritePath, "wb"))) {
 			    fprintf(pllFh, "%" PRIu32, pllData);
 			    dskClose(pllFh);
 			}
