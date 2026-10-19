@@ -129,6 +129,12 @@ void lsShowSpot(struct Spot *s, U32 time)
 	s->p_CurrPos = pos =
 	    (struct SpotPosition *) GetNthNode(s->p_positions, count);
 
+	/* Some spots in the original data have no positions at all
+	 * (e.g. spot 7 in NATUETA.SPO, the Natural Museum), so pos is NULL.
+	 * Skip them, as COSP 0.5a does. */
+	if (!pos)
+	    return;
+
 	/* alte Position l”schen */
 	lsHideSpot(s);
 
@@ -371,8 +377,10 @@ void lsLoadSpots(U32 bldId, char *uch_FileName)
 	    lsAddSpotPosition(spot, XPos, YPos);
 	}
 
-	if (!(LIST_EMPTY(sc->p_spots)))
-	    spot->p_CurrPos = (struct SpotPosition *) LIST_HEAD(sc->p_spots);
+	/* was LIST_HEAD(sc->p_spots) (the list of spots, not this
+	 * spot's positions) since the original 1994 code */
+	if (!(LIST_EMPTY(spot->p_positions)))
+	    spot->p_CurrPos = (struct SpotPosition *) LIST_HEAD(spot->p_positions);
     }
 
     dskClose(file);
